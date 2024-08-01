@@ -69,9 +69,11 @@ class Individual_Grid(object):
         # STUDENT consider putting more constraints on this to prevent pipes in the air, etc
 
         left = 1
-        right = width - 1
-        for y in range(height):
+        right = width - 6
+        for y in range(height - 1):
             for x in range(left, right):
+                if random.random() > 0.95:
+                    genome[y][x] = random.choice(options)
                 pass
         return genome
 
@@ -88,7 +90,7 @@ class Individual_Grid(object):
         crossover_pt = random.randint(1, width-2)
         
         left = 1
-        right = width - 1
+        right = width - 6
         for y in range(height):
             for x in range(left, right):
                 if x < crossover_pt:
