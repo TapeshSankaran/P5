@@ -78,16 +78,51 @@ class Individual_Grid(object):
     # Create zero or more children from self and other
     def generate_children(self, other):
         new_genome = copy.deepcopy(self.genome)
-        # Leaving first and last columns alone...
-        # do crossover with other
+
+        if other:
+            second_genome = copy.deepcopy(other.genome)
+        else:
+            second_genome = copy.deepcopy(self.empty_individual())
+        
+        # Single Point Crossover
+        crossover_pt = random.randint(1, width-2)
+        
         left = 1
         right = width - 1
         for y in range(height):
             for x in range(left, right):
-                # STUDENT Which one should you take?  Self, or other?  Why?
-                # STUDENT consider putting more constraints on this to prevent pipes in the air, etc
-                pass
+                if x < crossover_pt:
+                    new_genome[y][x] = self.genome[y][x]
+                else:
+                    new_genome[y][x] = second_genome[y][x]
+                    
+        # Uniform Crossover
+        # left = 1
+        # right = width - 1
+        # for y in range(height):
+        #     for x in range(left, right):
+        #         if random.random() < 0.5:
+        #             new_genome[y][x] = self.genome[y][x]
+        #         else:
+        #             new_genome[y][x] = second_genome[y][x]
+        
+        # Two-Point Crossover
+        # crossover_pt1 = random.randint(1, width-2)
+        # crossover_pt2 = random.randint(crossover_pt1, width-2)
+    
+        # left = 1
+        # right = width - 1
+        # for y in range(height):
+        #     for x in range(left, right):
+        #         if x < crossover_pt1 or x >= crossover_pt2:
+        #             new_genome[y][x] = self.genome[y][x]
+        #         else:
+        #             new_genome[y][x] = second_genome[y][x]
+                        
+        
+        
         # do mutation; note we're returning a one-element tuple here
+        new_genome = self.mutate(new_genome)
         return (Individual_Grid(new_genome),)
 
     # Turn the genome into a level string (easy for this genome)
@@ -101,6 +136,7 @@ class Individual_Grid(object):
         g = [["-" for col in range(width)] for row in range(height)]
         g[15][:] = ["X"] * width
         g[14][0] = "m"
+
         g[7][-1] = "v"
         for col in range(8, 14):
             g[col][-1] = "f"
@@ -115,6 +151,7 @@ class Individual_Grid(object):
         g = [random.choices(options, k=width) for row in range(height)]
         g[15][:] = ["X"] * width
         g[14][0] = "m"
+
         g[7][-1] = "v"
         g[8:14][-1] = ["f"] * 6
         g[14:16][-1] = ["X", "X"]
@@ -169,6 +206,16 @@ class Individual_DE(object):
         # STUDENT For example, too many stairs are unaesthetic.  Let's penalize that
         if len(list(filter(lambda de: de[1] == "6_stairs", self.genome))) > 5:
             penalties -= 2
+
+        # penalize too many enemies
+        enemy_ct = len(list(filter(lambda de: de[1] == "2_enemy", self.genome)))
+        if enemy_ct > 10:
+            penalties -= 1
+
+        # penalize too few platforms
+        
+
+
         # STUDENT If you go for the FI-2POP extra credit, you can put constraint calculation in here too and cache it in a new entry in __slots__.
         self._fitness = sum(map(lambda m: coefficients[m] * measurements[m],
                                 coefficients)) + penalties
@@ -348,6 +395,37 @@ def generate_successors(population):
     # STUDENT Design and implement this
     # Hint: Call generate_children() on some individuals and fill up results.
     #print(population)
+    roulette = elite_roulette(population)
+    results.extend(roulette)
+    other = roulette[0]
+    for grid in roulette[1:]:
+        results.extend(grid.generate_children(other))
+        other = grid
+
+    return results
+        
+def elite_roulette(population):
+    # Calculate total fitness
+    total_fitness = 0
+    for grid in population:
+        total_fitness += abs(grid.fitness())
+
+    # Calculate base probability
+    relative_fitness = [abs(f.fitness()) / total_fitness for f in population]
+    
+    # Calculate cumulative probability
+    probability = [sum(relative_fitness[:g+1]) for g in range(len(population))]
+    
+    # 
+    results = []
+    while len(results) < 200:
+        r = random.random()
+        for i, p in enumerate(probability):
+            if r <= p:
+                if population[i] in results or len(population[i].genome) == 0:
+                    continue
+                results.append(population[i])
+
     return results
 
 
@@ -385,7 +463,7 @@ def ga():
                     print("Max fitness:", str(best.fitness()))
                     print("Average generation time:", (now - start) / generation)
                     print("Net time:", now - start)
-                    with open("levels/last.txt", 'w') as f:
+                    with open("last.txt", 'w') as f:
                         for row in best.to_level():
                             f.write("".join(row) + "\n")
                 generation += 1
